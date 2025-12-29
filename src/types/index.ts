@@ -130,44 +130,10 @@ export interface LoginResponse {
     accessToken: string;
 }
 
-export const api = {
-    auth: {
-        login: { method: "POST" as const, path: "/api/auth/login" },
-        logout: { method: "POST" as const, path: "/api/auth/logout" },
-        me: { method: "GET" as const, path: "/api/auth/me" },
-    },
-    users: {
-        list: { method: "GET" as const, path: "/api/users" },
-        create: { method: "POST" as const, path: "/api/users" },
-    },
-    stations: {
-        list: { method: "GET" as const, path: "/api/stations" },
-        create: { method: "POST" as const, path: "/api/stations" },
-    },
-    checks: {
-        list: { method: "GET" as const, path: "/api/checks" },
-        create: { method: "POST" as const, path: "/api/checks" },
-        use: { method: "POST" as const, path: "/api/checks/use" },
-        qr: { method: "GET" as const, path: "/api/checks" },
-    },
-    messages: {
-        list: { method: "GET" as const, path: "/api/messages" },
-        sendAll: { method: "POST" as const, path: "/api/messages/send-all" },
-    },
-    stats: {
-        get: { method: "GET" as const, path: "/api/stats" },
-    },
-};
-
 const TOKEN_KEY = "ayoqsh_token";
 
 export const tokenStorage = {
     get: (): string | null => localStorage.getItem(TOKEN_KEY),
     set: (token: string) => localStorage.setItem(TOKEN_KEY, token),
     remove: () => localStorage.removeItem(TOKEN_KEY),
-};
-
-export const getAuthHeaders = (): HeadersInit => {
-    const token = tokenStorage.get();
-    return token ? { Authorization: `Bearer ${token}` } : {};
 };

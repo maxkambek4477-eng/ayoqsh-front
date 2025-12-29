@@ -1,7 +1,8 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { User, LoginRequest, LoginResponse, api, tokenStorage, getAuthHeaders } from "@/types";
+import { User, LoginRequest, LoginResponse, tokenStorage } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/axios";
 
 type AuthContextType = {
   user: User | null;
@@ -48,18 +49,8 @@ function useLoginMutation() {
     mutationFn: async (credentials: LoginRequest): Promise<LoginResponse> => {
       tokenStorage.remove();
       setStoredUser(null);
-
-      const res = await fetch(api.auth.login.path, {
-        method: api.auth.login.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || "Foydalanuvchi nomi yoki parol noto'g'ri");
-      }
-      return await res.json();
+      const { data } = await api.post<LoginResponse>("/api/auth/login", credentials);
+      return data;
     },
     onSuccess: (data: LoginResponse) => {
       tokenStorage.set(data.accessToken);
@@ -70,10 +61,10 @@ function useLoginMutation() {
         description: `${data.user.fullName || data.user.username} sifatida kirdingiz`,
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
         title: "Kirish muvaffaqiyatsiz",
-        description: error.message,
+        description: error.response?.data?.message || "Foydalanuvchi nomi yoki parol noto'g'ri",
         variant: "destructive",
       });
     },
@@ -86,10 +77,7 @@ function useLogoutMutation() {
 
   return useMutation({
     mutationFn: async () => {
-      await fetch(api.auth.logout.path, {
-        method: api.auth.logout.method,
-        headers: getAuthHeaders(),
-      });
+      await api.post("/api/auth/logout");
     },
     onSuccess: () => {
       tokenStorage.remove();
@@ -117,23 +105,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = tokenStorage.get();
       if (!token) return null;
 
-      const res = await fetch(api.auth.me.path, {
-        headers: getAuthHeaders(),
-      });
-
-      if (res.status === 401) {
-        tokenStorage.remove();
-        setStoredUser(null);
-        return null;
-      }
-
-      if (!res.ok) {
+      try {
+        const { data } = await api.get<User>("/api/auth/me");
+        setStoredUser(data);
+        return data;
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          tokenStorage.remove();
+          setStoredUser(null);
+          return null;
+        }
         return getStoredUser();
       }
-
-      const userData = await res.json();
-      setStoredUser(userData);
-      return userData;
     },
     initialData: initialUser,
     retry: false,

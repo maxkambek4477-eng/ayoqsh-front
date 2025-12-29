@@ -10,31 +10,16 @@ import {
   type CreateCheck,
   type CreateStation,
   type CreateMessage,
-  api,
-  getAuthHeaders,
 } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-
-async function authFetch(url: string, options?: RequestInit) {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-      ...options?.headers,
-    },
-  });
-  return res;
-}
+import api from "@/lib/axios";
 
 export function useUsers(role?: "moderator" | "operator" | "customer") {
   return useQuery<User[]>({
-    queryKey: [api.users.list.path, role],
+    queryKey: ["/api/users", role],
     queryFn: async () => {
-      const url = role ? `${api.users.list.path}?role=${role}` : api.users.list.path;
-      const res = await authFetch(url);
-      if (!res.ok) throw new Error("Foydalanuvchilarni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/users", { params: role ? { role } : {} });
+      return data;
     },
   });
 }
@@ -44,23 +29,16 @@ export function useCreateUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: InsertUser) => {
-      const res = await authFetch(api.users.create.path, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: "Foydalanuvchi yaratishda xatolik" }));
-        throw new Error(error.message || "Foydalanuvchi yaratishda xatolik");
-      }
-      return res.json() as Promise<User>;
+    mutationFn: async (userData: InsertUser) => {
+      const { data } = await api.post<User>("/api/users", userData);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({ title: "Muvaffaqiyat", description: "Foydalanuvchi yaratildi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Foydalanuvchi yaratishda xatolik", variant: "destructive" });
     },
   });
 }
@@ -70,23 +48,16 @@ export function useUpdateUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertUser> }) => {
-      const res = await authFetch(`${api.users.list.path}/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: "Foydalanuvchi yangilashda xatolik" }));
-        throw new Error(error.message || "Foydalanuvchi yangilashda xatolik");
-      }
-      return res.json() as Promise<User>;
+    mutationFn: async ({ id, data: userData }: { id: number; data: Partial<InsertUser> }) => {
+      const { data } = await api.put<User>(`/api/users/${id}`, userData);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({ title: "Muvaffaqiyat", description: "Foydalanuvchi yangilandi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Foydalanuvchi yangilashda xatolik", variant: "destructive" });
     },
   });
 }
@@ -97,21 +68,15 @@ export function useDeleteUser() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await authFetch(`${api.users.list.path}/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: "Foydalanuvchi o'chirishda xatolik" }));
-        throw new Error(error.message || "Foydalanuvchi o'chirishda xatolik");
-      }
+      await api.delete(`/api/users/${id}`);
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({ title: "Muvaffaqiyat", description: "Foydalanuvchi o'chirildi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Foydalanuvchi o'chirishda xatolik", variant: "destructive" });
     },
   });
 }
@@ -120,9 +85,8 @@ export function useStationCustomers(stationId: number) {
   return useQuery<User[]>({
     queryKey: ["/api/users/station", stationId, "customers"],
     queryFn: async () => {
-      const res = await authFetch(`/api/users/station/${stationId}/customers`);
-      if (!res.ok) throw new Error("Mijozlarni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get(`/api/users/station/${stationId}/customers`);
+      return data;
     },
     enabled: !!stationId,
   });
@@ -130,11 +94,10 @@ export function useStationCustomers(stationId: number) {
 
 export function useStations() {
   return useQuery<Station[]>({
-    queryKey: [api.stations.list.path],
+    queryKey: ["/api/stations"],
     queryFn: async () => {
-      const res = await authFetch(api.stations.list.path);
-      if (!res.ok) throw new Error("Shaxobchalarni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/stations");
+      return data;
     },
   });
 }
@@ -144,20 +107,16 @@ export function useCreateStation() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: CreateStation) => {
-      const res = await authFetch(api.stations.create.path, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Shaxobcha yaratishda xatolik");
-      return res.json() as Promise<Station>;
+    mutationFn: async (stationData: CreateStation) => {
+      const { data } = await api.post<Station>("/api/stations", stationData);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.stations.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
       toast({ title: "Muvaffaqiyat", description: "Shaxobcha yaratildi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Shaxobcha yaratishda xatolik", variant: "destructive" });
     },
   });
 }
@@ -167,20 +126,16 @@ export function useUpdateStation() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<CreateStation & { isActive?: boolean }> }) => {
-      const res = await authFetch(`${api.stations.list.path}/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Shaxobcha yangilashda xatolik");
-      return res.json() as Promise<Station>;
+    mutationFn: async ({ id, data: stationData }: { id: number; data: Partial<CreateStation & { isActive?: boolean }> }) => {
+      const { data } = await api.put<Station>(`/api/stations/${id}`, stationData);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.stations.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
       toast({ title: "Muvaffaqiyat", description: "Shaxobcha yangilandi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Shaxobcha yangilashda xatolik", variant: "destructive" });
     },
   });
 }
@@ -191,39 +146,25 @@ export function useDeleteStation() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await authFetch(`${api.stations.list.path}/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: "Shaxobcha o'chirishda xatolik" }));
-        throw new Error(error.message || "Shaxobcha o'chirishda xatolik");
-      }
+      await api.delete(`/api/stations/${id}`);
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.stations.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stations"] });
       toast({ title: "Muvaffaqiyat", description: "Shaxobcha o'chirildi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Shaxobcha o'chirishda xatolik", variant: "destructive" });
     },
   });
 }
 
 export function useChecks(filters?: { stationId?: number; status?: string; operatorId?: number }) {
-  const params = new URLSearchParams();
-  if (filters?.stationId) params.append("stationId", String(filters.stationId));
-  if (filters?.status) params.append("status", filters.status);
-  if (filters?.operatorId) params.append("operatorId", String(filters.operatorId));
-
-  const url = params.toString() ? `${api.checks.list.path}?${params}` : api.checks.list.path;
-
   return useQuery<Check[]>({
-    queryKey: [api.checks.list.path, filters],
+    queryKey: ["/api/checks", filters],
     queryFn: async () => {
-      const res = await authFetch(url);
-      if (!res.ok) throw new Error("Cheklarni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/checks", { params: filters });
+      return data;
     },
   });
 }
@@ -233,21 +174,17 @@ export function useCreateCheck() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: CreateCheck) => {
-      const res = await authFetch(api.checks.create.path, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Chek yaratishda xatolik");
-      return res.json() as Promise<Check>;
+    mutationFn: async (checkData: CreateCheck) => {
+      const { data } = await api.post<Check>("/api/checks", checkData);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.checks.list.path] });
-      queryClient.invalidateQueries({ queryKey: [api.stats.get.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/checks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: "Muvaffaqiyat", description: "Chek yaratildi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Chek yaratishda xatolik", variant: "destructive" });
     },
   });
 }
@@ -258,22 +195,16 @@ export function useConfirmCheck() {
 
   return useMutation({
     mutationFn: async (checkId: number) => {
-      const res = await authFetch(`/api/checks/${checkId}/confirm`, {
-        method: "PUT",
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || "Chekni tasdiqlashda xatolik");
-      }
-      return res.json();
+      const { data } = await api.put(`/api/checks/${checkId}/confirm`);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.checks.list.path] });
-      queryClient.invalidateQueries({ queryKey: [api.stats.get.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/checks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({ title: "Muvaffaqiyat", description: "Chek tasdiqlandi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Chekni tasdiqlashda xatolik", variant: "destructive" });
     },
   });
 }
@@ -284,21 +215,15 @@ export function useCancelCheck() {
 
   return useMutation({
     mutationFn: async (checkId: number) => {
-      const res = await authFetch(`/api/checks/${checkId}/cancel`, {
-        method: "PUT",
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.message || "Chekni bekor qilishda xatolik");
-      }
-      return res.json();
+      const { data } = await api.put(`/api/checks/${checkId}/cancel`);
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.checks.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/checks"] });
       toast({ title: "Muvaffaqiyat", description: "Chek bekor qilindi" });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Chekni bekor qilishda xatolik", variant: "destructive" });
     },
   });
 }
@@ -307,9 +232,8 @@ export function useOperatorStats(operatorId: number) {
   return useQuery<OperatorStats>({
     queryKey: ["/api/stats/operator", operatorId],
     queryFn: async () => {
-      const res = await authFetch(`/api/stats/operator/${operatorId}`);
-      if (!res.ok) throw new Error("Statistikani yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get(`/api/stats/operator/${operatorId}`);
+      return data;
     },
     enabled: !!operatorId,
   });
@@ -317,11 +241,10 @@ export function useOperatorStats(operatorId: number) {
 
 export function useMessages() {
   return useQuery<Message[]>({
-    queryKey: [api.messages.list.path],
+    queryKey: ["/api/messages"],
     queryFn: async () => {
-      const res = await authFetch(api.messages.list.path);
-      if (!res.ok) throw new Error("Xabarlarni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/messages");
+      return data;
     },
   });
 }
@@ -331,34 +254,26 @@ export function useSendMessage() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: CreateMessage) => {
-      const res = await authFetch(api.messages.sendAll.path, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Xabar yuborishda xatolik");
-      return res.json();
+    mutationFn: async (messageData: CreateMessage) => {
+      const { data } = await api.post("/api/messages/send-all", messageData);
+      return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [api.messages.list.path] });
-      toast({
-        title: "Muvaffaqiyat",
-        description: `Xabar ${data.recipientsCount} ta mijozga yuborildi`,
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      toast({ title: "Muvaffaqiyat", description: `Xabar ${data.recipientsCount} ta mijozga yuborildi` });
     },
-    onError: (error: Error) => {
-      toast({ title: "Xatolik", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Xabar yuborishda xatolik", variant: "destructive" });
     },
   });
 }
 
 export function useStats() {
   return useQuery<StatsResponse>({
-    queryKey: [api.stats.get.path],
+    queryKey: ["/api/stats"],
     queryFn: async () => {
-      const res = await authFetch(api.stats.get.path);
-      if (!res.ok) throw new Error("Statistikani yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/stats");
+      return data;
     },
   });
 }
@@ -375,9 +290,8 @@ export function useTopCustomers(order: "asc" | "desc" = "desc", limit: number = 
   return useQuery<TopCustomer[]>({
     queryKey: ["/api/users/top", order, limit],
     queryFn: async () => {
-      const res = await authFetch(`/api/users/top?order=${order}&limit=${limit}`);
-      if (!res.ok) throw new Error("Top mijozlarni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/users/top", { params: { order, limit } });
+      return data;
     },
   });
 }
@@ -386,21 +300,15 @@ export function useCustomersReport(order: "asc" | "desc" = "desc") {
   return useQuery<TopCustomer[]>({
     queryKey: ["/api/users/report", order],
     queryFn: async () => {
-      const res = await authFetch(`/api/users/report?order=${order}`);
-      if (!res.ok) throw new Error("Hisobotni yuklashda xatolik");
-      return res.json();
+      const { data } = await api.get("/api/users/report", { params: { order } });
+      return data;
     },
   });
 }
 
 export async function exportCustomersToExcel() {
-  const res = await fetch("/api/users/export/excel", {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) throw new Error("Excel yuklab olishda xatolik");
-
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
+  const response = await api.get("/api/users/export/excel", { responseType: "blob" });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
   const a = document.createElement("a");
   a.href = url;
   a.download = `mijozlar-hisoboti-${new Date().toISOString().split("T")[0]}.xlsx`;
