@@ -10,6 +10,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { tokenStorage } from "@/types";
+import { useQueryClient } from "@tanstack/react-query";
 
 const loginSchema = z.object({
     username: z.string().min(1, "Foydalanuvchi nomi kiritilishi shart"),
@@ -17,9 +19,10 @@ const loginSchema = z.object({
 });
 
 export default function OperatorLoginPage() {
-    const { loginMutation, user, logoutMutation } = useAuth();
+    const { loginMutation, user } = useAuth();
     const [, setLocation] = useLocation();
     const { toast } = useToast();
+    const queryClient = useQueryClient();
     const hasCheckedRole = useRef(false);
     const hasShownToast = useRef(false);
 
@@ -29,8 +32,11 @@ export default function OperatorLoginPage() {
             if (user.role === "operator") {
                 setLocation("/");
             } else {
-                // Boshqa rol - chiqish va "login yoki parol xato" xabari
-                logoutMutation.mutate();
+                // Noto'g'ri rol - sessiyani tozalash (toast'siz)
+                tokenStorage.remove();
+                localStorage.removeItem("ayoqsh_user");
+                queryClient.setQueryData(["auth-user"], null);
+
                 if (!hasShownToast.current) {
                     hasShownToast.current = true;
                     toast({
@@ -44,7 +50,7 @@ export default function OperatorLoginPage() {
         if (!user) {
             hasCheckedRole.current = false;
         }
-    }, [user, setLocation]);
+    }, [user, setLocation, queryClient, toast]);
 
     const form = useForm<z.infer<typeof loginSchema>>({
         resolver: zodResolver(loginSchema),
