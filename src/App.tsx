@@ -7,7 +7,8 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { Loader2 } from "lucide-react";
 
-import LoginPage from "@/pages/login";
+import AdminLoginPage from "@/pages/admin-login";
+import OperatorLoginPage from "@/pages/operator-login";
 import AdminDashboard from "@/pages/admin-dashboard";
 import OperatorPanel from "@/pages/operator-panel";
 import UsersPage from "@/pages/users";
@@ -70,7 +71,9 @@ function RoleBasedHome() {
 function Router() {
   return (
     <Switch>
-      <Route path="/login" component={LoginPage} />
+      <Route path="/login" component={OperatorLoginPage} />
+      <Route path="/moderator" component={AdminLoginPage} />
+      <Route path="/operator" component={OperatorLoginPage} />
 
       <Route path="/">
         <Layout>
