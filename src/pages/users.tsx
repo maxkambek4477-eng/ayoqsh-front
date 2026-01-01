@@ -143,7 +143,7 @@ export default function UsersPage() {
                   <TableHead>Rol</TableHead>
                   <TableHead>Shaxobcha</TableHead>
                   <TableHead>Holat</TableHead>
-                  <TableHead>Sana</TableHead>
+                  <TableHead>Ro'yxatdan o'tgan</TableHead>
                   <TableHead className="w-24">Amallar</TableHead>
                 </TableRow>
               </TableHeader>

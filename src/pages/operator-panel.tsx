@@ -1,44 +1,33 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useChecks, useCreateCheck, useOperatorStats, useStationCustomers } from "@/hooks/use-data";
+import { useChecks, useCreateCheck, useCancelCheck, useOperatorStats, useStationCustomers } from "@/hooks/use-data";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, History, Users, Droplets, Search, MapPin, Phone, User, Loader2, Copy, Printer, RotateCcw, QrCode } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { History, Users, Droplets, Search, Loader2, Printer, QrCode, Plus, X } from "lucide-react";
 import { format } from "date-fns";
 import { formatLiters } from "@/lib/format";
 import type { Check } from "@/types";
-
-const checkSchema = z.object({
-  amountLiters: z.coerce.number().min(0.1).max(10000).refine((val) => val > 0),
-  customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
-  customerAddress: z.string().optional(),
-});
 
 export default function OperatorPanel() {
   const { user } = useAuth();
   const { toast } = useToast();
   const createCheck = useCreateCheck();
+  const cancelCheck = useCancelCheck();
   const { data: checks } = useChecks({ operatorId: user?.id || 0 });
   const { data: stats, isLoading: statsLoading } = useOperatorStats(user?.id || 0);
   const { data: customers, isLoading: customersLoading } = useStationCustomers(user?.stationId || 0);
 
   const [lastCheck, setLastCheck] = useState<Check | null>(null);
   const [showQR, setShowQR] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [quickCustomer, setQuickCustomer] = useState<{ name: string; phone: string } | null>(null);
-  const [quickAmount, setQuickAmount] = useState("");
+  const [litrAmount, setLitrAmount] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const myChecks = checks?.filter((c) => c.operatorId === user?.id) || [];
@@ -50,47 +39,31 @@ export default function OperatorPanel() {
       c.phone?.includes(customerSearch)
   );
 
-  const form = useForm<z.infer<typeof checkSchema>>({
-    resolver: zodResolver(checkSchema),
-    defaultValues: {
-      amountLiters: 0,
-      customerName: "",
-      customerPhone: "",
-      customerAddress: "",
-    },
-  });
+  // Avtomatik print funksiyasi
+  const autoPrint = useCallback((check: Check) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
 
-  const onSubmit = (values: z.infer<typeof checkSchema>) => {
-    if (!user?.stationId) return;
+    const stationName = check.station?.name || user?.station?.name || "";
+    const qrImg = check.qrCode ? `<img src="${check.qrCode}" style="width:200px;height:200px;object-fit:contain" alt="QR Code" />` : "";
 
-    createCheck.mutate(
-      {
-        amountLiters: values.amountLiters,
-        operatorId: user.id,
-        stationId: user.stationId,
-        customerName: values.customerName,
-        customerPhone: values.customerPhone,
-        customerAddress: values.customerAddress,
-      },
-      {
-        onSuccess: (data) => {
-          setLastCheck(data);
-          setShowQR(true);
-          form.reset();
-        },
-      }
-    );
-  };
+    const html = `<!DOCTYPE html><html><head><title>Chek</title><style>body{font-family:Arial;text-align:center;padding:20px;margin:0}.check{border:2px solid #000;padding:20px;width:280px;margin:auto}.code{font-size:28px;font-weight:bold;font-family:monospace;letter-spacing:2px;margin:10px 0}.litr{font-size:32px;font-weight:bold;color:#0066cc;margin:10px 0}.label{font-size:14px;color:#666;margin:5px 0}</style></head><body><div class="check"><h2 style="margin:0">AYOQSH</h2><h3 style="margin:5px 0">${stationName}</h3>${qrImg}<p class="code">${check.code}</p><p class="label">Chek kodi</p><p class="litr">${check.amountLiters} L</p><p style="font-size:12px;color:#666">${format(new Date(), "dd.MM.yyyy HH:mm")}</p></div><script>window.print();setTimeout(()=>window.close(),500);</script></body></html>`;
 
-  const handleQuickAdd = () => {
-    if (!user?.stationId || !quickCustomer) {
-      toast({ title: "Xatolik", description: "Mijozni tanlang", variant: "destructive" });
+    w.document.write(html);
+    w.document.close();
+  }, [user?.station?.name]);
+
+  // Chek yaratish - faqat litr bilan
+  const handleCreateCheck = useCallback(() => {
+    if (!user?.stationId) {
+      toast({ title: "Xatolik", description: "Shaxobcha topilmadi", variant: "destructive" });
       return;
     }
 
-    const amount = parseFloat(quickAmount);
-    if (isNaN(amount) || amount < 0) {
-      toast({ title: "Xatolik", description: "Miqdorni kiriting", variant: "destructive" });
+    const amount = parseFloat(litrAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: "Xatolik", description: "Litr miqdorini kiriting", variant: "destructive" });
+      inputRef.current?.focus();
       return;
     }
 
@@ -99,51 +72,61 @@ export default function OperatorPanel() {
         amountLiters: amount,
         operatorId: user.id,
         stationId: user.stationId,
-        customerName: quickCustomer.name,
-        customerPhone: quickCustomer.phone,
-        customerAddress: "",
-        autoUse: true,
       },
       {
         onSuccess: (data) => {
           setLastCheck(data);
-          setShowQuickAdd(false);
-          setShowQR(true);
-          setQuickAmount("");
-          setQuickCustomer(null);
+          setLitrAmount("");
+          setShowQR(true); // QR dialog ochilsin
+          inputRef.current?.focus();
+          toast({ title: "Chek yaratildi!", description: `${amount} litr - ${data.code}` });
+        },
+        onError: () => {
+          toast({ title: "Xatolik", description: "Chek yaratishda xatolik", variant: "destructive" });
         },
       }
     );
-  };
+  }, [user, litrAmount, createCheck, autoPrint, toast]);
 
-  const openQuickAdd = (check: Check) => {
-    setQuickCustomer({
-      name: check.customerName || "",
-      phone: check.customerPhone || "",
+  // Chekni bekor qilish
+  const handleCancelCheck = useCallback(() => {
+    if (!lastCheck) return;
+
+    cancelCheck.mutate(lastCheck.id, {
+      onSuccess: () => {
+        setShowQR(false);
+        setLastCheck(null);
+        toast({ title: "Bekor qilindi", description: "Chek bekor qilindi" });
+        inputRef.current?.focus();
+      },
+      onError: () => {
+        toast({ title: "Xatolik", description: "Chekni bekor qilishda xatolik", variant: "destructive" });
+      },
     });
-    setQuickAmount("");
-    setShowQuickAdd(true);
-  };
+  }, [lastCheck, cancelCheck, toast]);
 
-  const handleCopyCode = () => {
-    if (lastCheck?.code) {
-      navigator.clipboard.writeText(lastCheck.code);
-      toast({ title: "Nusxalandi", description: "Kod nusxalandi" });
+  // Enter tugmasi bosilganda
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !createCheck.isPending) {
+      e.preventDefault();
+      handleCreateCheck();
     }
   };
 
+  // Sahifa yuklanganda inputga fokus
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   const handlePrint = () => {
     if (!lastCheck) return;
-    const w = window.open("", "_blank");
-    if (!w) return;
+    autoPrint(lastCheck);
+  };
 
-    const stationName = lastCheck.station?.name || user?.station?.name || "";
-    const qrImg = lastCheck.qrCode ? `<img src="${lastCheck.qrCode}" style="width:200px;height:200px;object-fit:contain" alt="QR Code" />` : "";
-
-    const html = `<!DOCTYPE html><html><head><title>Chek</title></head><body style="font-family:Arial;text-align:center;padding:20px"><div style="border:2px solid #000;padding:20px;width:300px;margin:auto"><h2>AYOQSH</h2><h3>${stationName}</h3>${qrImg}<p class="text-3xl font-bold font-mono tracking-wide">${lastCheck.code}</p><p class="text-sm text-muted-foreground">Chek kodi:</p><p class="text-xl font-bold text-primary mt-2">${lastCheck.amountLiters} LTR</p><div class="mt-2 text-sm text-muted-foreground"><p>Mijoz: ${lastCheck.customerName || "-"}</p><p>Tel: ${lastCheck.customerPhone || "-"}</p></div></div><script>window.print();window.close();</script></body></html>`;
-
-    w.document.write(html);
-    w.document.close();
+  // Tarixdan qayta print
+  const handleReprintCheck = (check: Check) => {
+    autoPrint(check);
+    toast({ title: "Chop etilmoqda", description: `${check.code} - ${check.amountLiters} L` });
   };
 
   return (
@@ -209,7 +192,7 @@ export default function OperatorPanel() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <QrCode className="h-4 w-4 text-green-600" />
-              Oxirgi yaratilgan chek
+              Oxirgi chek
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -220,23 +203,17 @@ export default function OperatorPanel() {
                 )}
                 <div>
                   <p className="font-mono font-bold text-lg">{lastCheck.code}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {lastCheck.customerName} • {lastCheck.amountLiters} L
-                  </p>
+                  <p className="text-sm text-muted-foreground">{lastCheck.amountLiters} L</p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={handleCopyCode}>
-                  <Copy className="h-4 w-4 mr-1" />
-                  Nusxa
-                </Button>
                 <Button size="sm" variant="outline" onClick={handlePrint}>
                   <Printer className="h-4 w-4 mr-1" />
-                  Chop etish
+                  Qayta chop
                 </Button>
-                <Button size="sm" variant="default" onClick={() => setShowQR(true)}>
+                <Button size="sm" variant="outline" onClick={() => setShowQR(true)}>
                   <QrCode className="h-4 w-4 mr-1" />
-                  QR ko'rish
+                  Ko'rish
                 </Button>
               </div>
             </div>
@@ -261,104 +238,54 @@ export default function OperatorPanel() {
         </TabsList>
 
         <TabsContent value="check">
-          <Card className="border-primary/20 shadow-primary/5 shadow-lg">
+          <Card className="border-primary/30 shadow-xl">
             <div className="h-2 bg-gradient-to-r from-primary to-blue-400" />
-            <CardHeader>
-              <CardTitle>Yangi chek yaratish</CardTitle>
-              <CardDescription>Mijoz malumotlarini kiriting va QR-kodli chek yarating.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mijoz ismi</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="Ism Familiya" className="pl-10" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+            <CardContent className="pt-8 pb-8">
+              <div className="max-w-md mx-auto space-y-6">
+                <div className="text-center">
+                  <Droplets className="h-12 w-12 text-primary mx-auto mb-2" />
+                  <h3 className="text-xl font-bold">Litr kiriting</h3>
+                  <p className="text-sm text-muted-foreground">Enter tugmasini bosing</p>
+                </div>
 
-                    <FormField
-                      control={form.control}
-                      name="customerPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Telefon raqam</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="+998901234567" className="pl-10" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                <div className="relative">
+                  <Input
+                    ref={inputRef}
+                    type="number"
+                    placeholder="0"
+                    min="0.1"
+                    step="0.1"
+                    className="h-20 text-4xl font-bold text-center pr-16"
+                    value={litrAmount}
+                    onChange={(e) => setLitrAmount(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={createCheck.isPending}
+                    autoFocus
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-muted-foreground">
+                    L
+                  </span>
+                </div>
 
-                    <FormField
-                      control={form.control}
-                      name="customerAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Manzil (ixtiyoriy)</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="Toshkent, Chilonzor tumani" className="pl-10" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="amountLiters"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-base">Litr miqdori</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                              <Input
-                                type="number"
-                                placeholder="0.00"
-                                min="0.1"
-                                step="0.1"
-                                className="pl-12 h-12 text-xl font-bold"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value) < 0 ? 0 : parseFloat(e.target.value))}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full h-14 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
-                    disabled={createCheck.isPending || !user?.stationId}
-                  >
-                    {createCheck.isPending ? "Yaratilmoqda..." : "Chek yaratish"}
-                    <QrCode className="ml-2 h-5 w-5" />
-                  </Button>
-                </form>
-              </Form>
+                <Button
+                  size="lg"
+                  className="w-full h-16 text-xl bg-primary hover:bg-primary/90 shadow-lg"
+                  onClick={handleCreateCheck}
+                  disabled={createCheck.isPending || !user?.stationId}
+                >
+                  {createCheck.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                      Yaratilmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-6 w-6" />
+                      CHEK YARATISH
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -373,8 +300,6 @@ export default function OperatorPanel() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Kod</TableHead>
-                    <TableHead>Mijoz</TableHead>
-                    <TableHead>Telefon</TableHead>
                     <TableHead>Miqdor</TableHead>
                     <TableHead>Holat</TableHead>
                     <TableHead>Sana</TableHead>
@@ -384,7 +309,7 @@ export default function OperatorPanel() {
                 <TableBody>
                   {myChecks.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                         Hali chek yaratilmagan.
                       </TableCell>
                     </TableRow>
@@ -392,9 +317,7 @@ export default function OperatorPanel() {
                     myChecks.map((check) => (
                       <TableRow key={check.id}>
                         <TableCell className="font-mono font-bold">{check.code}</TableCell>
-                        <TableCell>{check.customerName || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{check.customerPhone || "-"}</TableCell>
-                        <TableCell className="font-bold">{check.amountLiters} L</TableCell>
+                        <TableCell className="font-bold text-lg">{check.amountLiters} L</TableCell>
                         <TableCell>
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${check.status === "used"
@@ -409,9 +332,9 @@ export default function OperatorPanel() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">{format(new Date(check.createdAt), "dd.MM HH:mm")}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant="outline" onClick={() => openQuickAdd(check)}>
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                            Qayta
+                          <Button size="sm" variant="outline" onClick={() => handleReprintCheck(check)}>
+                            <Printer className="h-4 w-4 mr-1" />
+                            Chop
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -484,10 +407,7 @@ export default function OperatorPanel() {
       <Dialog open={showQR} onOpenChange={setShowQR}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">Chek yaratildi!</DialogTitle>
-            <DialogDescription className="text-center">
-              Mijoz ushbu kod bilan Telegram botda litr olishi mumkin.
-            </DialogDescription>
+            <DialogTitle className="text-center">Chek</DialogTitle>
           </DialogHeader>
           <div ref={printRef} className="flex flex-col items-center justify-center py-6">
             <div className="w-52 h-52 border-2 border-slate-200 rounded-lg bg-white flex items-center justify-center overflow-hidden">
@@ -498,64 +418,21 @@ export default function OperatorPanel() {
               )}
             </div>
             <div className="text-center space-y-1 mt-4">
-              <p className="text-sm text-muted-foreground">Chek kodi:</p>
               <p className="text-3xl font-bold font-mono tracking-wide">{lastCheck?.code}</p>
-              <p className="text-xl font-bold text-primary mt-2">{lastCheck?.amountLiters} LTR</p>
-              <div className="mt-2 text-sm text-muted-foreground">
-                <p>Mijoz: {lastCheck?.customerName || "-"}</p>
-                <p>Tel: {lastCheck?.customerPhone || "-"}</p>
-              </div>
+              <p className="text-sm text-muted-foreground">Chek kodi</p>
+              <p className="text-2xl font-bold text-primary mt-2">{lastCheck?.amountLiters} L</p>
             </div>
           </div>
           <DialogFooter className="flex gap-2 sm:justify-center">
-            <Button variant="outline" onClick={handleCopyCode}>
-              <Copy className="w-4 h-4 mr-2" />
-              Nusxa
+            <Button variant="destructive" onClick={handleCancelCheck} disabled={cancelCheck.isPending}>
+              <X className="w-4 h-4 mr-2" />
+              Bekor qilish
             </Button>
             <Button variant="outline" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-2" />
               Chop etish
             </Button>
-            <Button onClick={() => setShowQR(false)}>Tayyor</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quick Add Dialog */}
-      <Dialog open={showQuickAdd} onOpenChange={setShowQuickAdd}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Qayta chek yaratish</DialogTitle>
-            <DialogDescription>Yangi chek yarating.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="bg-slate-50 p-4 rounded-lg">
-              <p className="font-medium">{quickCustomer?.name}</p>
-              <p className="text-sm text-muted-foreground">{quickCustomer?.phone}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Litr miqdori</label>
-              <div className="relative mt-1">
-                <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  min="0.1"
-                  step="0.1"
-                  className="pl-12 h-12 text-xl font-bold"
-                  value={quickAmount}
-                  onChange={(e) => setQuickAmount(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuickAdd(false)}>
-              Bekor qilish
-            </Button>
-            <Button onClick={handleQuickAdd} disabled={createCheck.isPending}>
-              {createCheck.isPending ? "Yaratilmoqda..." : "Yaratish"}
-            </Button>
+            <Button onClick={() => setShowQR(false)}>Yopish</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,16 +1,74 @@
+import { useState } from "react";
 import { useStats, useStations } from "@/hooks/use-data";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Users, Droplets, Receipt, Building2, TrendingUp, CheckCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Users, Droplets, Receipt, Building2, TrendingUp, CheckCircle, Clock, Download, Loader2, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatLiters } from "@/lib/format";
+import { format } from "date-fns";
+import api from "@/lib/axios";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading: statsLoading } = useStats();
   const { data: stations } = useStations();
 
+  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [exporting, setExporting] = useState(false);
+
   const usedPercent = stats?.totalChecks ? Math.round((stats.usedChecks / stats.totalChecks) * 100) : 0;
   const pendingPercent = stats?.totalChecks ? Math.round((stats.pendingChecks / stats.totalChecks) * 100) : 0;
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await api.get(`/api/checks/export/excel`, {
+        params: { startDate, endDate },
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `cheklar_${startDate}_${endDate}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export error:", error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportToday = async () => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    setStartDate(today);
+    setEndDate(today);
+    setExporting(true);
+    try {
+      const response = await api.get(`/api/checks/export/excel`, {
+        params: { startDate: today, endDate: today },
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `cheklar_${today}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export error:", error);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -82,6 +140,53 @@ export default function AdminDashboard() {
           loading={statsLoading}
         />
       </div>
+
+      {/* Excel Export */}
+      <Card className="shadow-sm border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Excel eksport
+          </CardTitle>
+          <CardDescription>Cheklar ma'lumotlarini Excel formatida yuklab olish</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Boshlanish sanasi</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pl-10 w-44"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tugash sanasi</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="pl-10 w-44"
+                />
+              </div>
+            </div>
+            <Button onClick={handleExport} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Yuklab olish
+            </Button>
+            <Button variant="outline" onClick={handleExportToday} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calendar className="mr-2 h-4 w-4" />}
+              Bugungi
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-sm border-border/50">
