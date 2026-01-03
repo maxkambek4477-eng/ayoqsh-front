@@ -228,6 +228,48 @@ export function useCancelCheck() {
   });
 }
 
+export function useDeleteCheck() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (checkId: number) => {
+      const { data } = await api.delete(`/api/checks/${checkId}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/checks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Muvaffaqiyat", description: "Chek o'chirildi" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Chekni o'chirishda xatolik", variant: "destructive" });
+    },
+  });
+}
+
+export function useReactivateCheck() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ checkId, amountLiters, operatorId }: { checkId: number; amountLiters: number; operatorId: number }) => {
+      const { data } = await api.put<Check>(`/api/checks/${checkId}/reactivate`, { amountLiters, operatorId });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/checks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Muvaffaqiyat", description: "Litrlar mijoz hisobiga qo'shildi" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Xatolik", description: error.response?.data?.message || "Litr qo'shishda xatolik", variant: "destructive" });
+    },
+  });
+}
+
 export function useOperatorStats(operatorId: number) {
   return useQuery<OperatorStats>({
     queryKey: ["/api/stats/operator", operatorId],

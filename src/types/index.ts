@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export type Role = "moderator" | "operator" | "customer";
-export type CheckStatus = "pending" | "used" | "expired" | "cancelled";
+export type CheckStatus = "pending" | "printed" | "used" | "expired" | "cancelled";
 
 export interface Station {
     id: number;

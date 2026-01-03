@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useChecks, useCreateCheck, useCancelCheck, useOperatorStats, useStationCustomers } from "@/hooks/use-data";
+import { useChecks, useCreateCheck, useCancelCheck, useConfirmCheck, useOperatorStats, useStationCustomers } from "@/hooks/use-data";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export default function OperatorPanel() {
   const { toast } = useToast();
   const createCheck = useCreateCheck();
   const cancelCheck = useCancelCheck();
+  const confirmCheck = useConfirmCheck();
   const { data: checks } = useChecks({ operatorId: user?.id || 0 });
   const { data: stats, isLoading: statsLoading } = useOperatorStats(user?.id || 0);
   const { data: customers, isLoading: customersLoading } = useStationCustomers(user?.stationId || 0);
@@ -31,6 +32,7 @@ export default function OperatorPanel() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const myChecks = checks?.filter((c) => c.operatorId === user?.id) || [];
+  const pendingChecks = myChecks.filter((c) => c.status === "pending");
 
   const filteredCustomers = customers?.filter(
     (c) =>
@@ -123,9 +125,13 @@ export default function OperatorPanel() {
 
   const handlePrint = () => {
     if (!lastCheck) return;
-    const checkToPrint = lastCheck; // Referensni saqlash
-    setShowQR(false); // Dialogni yopish
-    // requestAnimationFrame bilan keyingi renderdan keyin print qilish
+    const checkToPrint = lastCheck;
+    setShowQR(false);
+
+    // Chekni tasdiqlash - ro'yxatdan yo'qoladi
+    confirmCheck.mutate(checkToPrint.id);
+    setLastCheck(null);
+
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         autoPrint(checkToPrint);
@@ -134,10 +140,11 @@ export default function OperatorPanel() {
     });
   };
 
-  // Tarixdan qayta print
+  // Ro'yxatdan chop etish
   const handleReprintCheck = (check: Check) => {
+    // Chekni tasdiqlash - ro'yxatdan yo'qoladi
+    confirmCheck.mutate(check.id);
     autoPrint(check);
-    toast({ title: "Chop etilmoqda", description: `${check.code} - ${check.amountLiters} L` });
   };
 
   return (
@@ -240,7 +247,7 @@ export default function OperatorPanel() {
           </TabsTrigger>
           <TabsTrigger value="history">
             <History className="w-4 h-4 mr-2" />
-            Tarix
+            Chop etilmagan
           </TabsTrigger>
           <TabsTrigger value="customers">
             <Users className="w-4 h-4 mr-2" />
@@ -304,7 +311,8 @@ export default function OperatorPanel() {
         <TabsContent value="history">
           <Card>
             <CardHeader>
-              <CardTitle>Cheklar tarixi</CardTitle>
+              <CardTitle>Chop etilmagan cheklar</CardTitle>
+              <CardDescription>Kutilayotgan cheklar - hali ishlatilmagan</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -318,27 +326,20 @@ export default function OperatorPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {myChecks.length === 0 ? (
+                  {pendingChecks.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        Hali chek yaratilmagan.
+                        Chop etilmagan chek yo'q.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    myChecks.map((check) => (
+                    pendingChecks.map((check) => (
                       <TableRow key={check.id}>
                         <TableCell className="font-mono font-bold">{check.code}</TableCell>
                         <TableCell className="font-bold text-lg">{check.amountLiters} L</TableCell>
                         <TableCell>
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full ${check.status === "used"
-                              ? "bg-green-100 text-green-700"
-                              : check.status === "pending"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-gray-100 text-gray-700"
-                              }`}
-                          >
-                            {check.status === "used" ? "Ishlatilgan" : check.status === "pending" ? "Kutilmoqda" : check.status}
+                          <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                            Kutilmoqda
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{format(new Date(check.createdAt), "dd.MM HH:mm")}</TableCell>
@@ -435,13 +436,13 @@ export default function OperatorPanel() {
             </div>
           </div>
           <DialogFooter className="flex gap-2 sm:justify-center">
-            <Button variant="destructive" onClick={handleCancelCheck} disabled={cancelCheck.isPending}>
-              <X className="w-4 h-4 mr-2" />
-              Bekor qilish
-            </Button>
             <Button variant="outline" onClick={handlePrint}>
               <Printer className="w-4 h-4 mr-2" />
               Chop etish
+            </Button>
+            <Button variant="destructive" onClick={handleCancelCheck} disabled={cancelCheck.isPending}>
+              <X className="w-4 h-4 mr-2" />
+              Bekor qilish
             </Button>
             <Button onClick={() => setShowQR(false)}>Yopish</Button>
           </DialogFooter>

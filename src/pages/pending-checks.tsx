@@ -1,56 +1,25 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useChecks } from "@/hooks/use-data";
+import { useChecks, useConfirmCheck } from "@/hooks/use-data";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Printer, Copy, QrCode, Loader2, CheckCircle, Trash2 } from "lucide-react";
+import { Printer, Copy, QrCode, Loader2, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Check } from "@/types";
-
-const PRINTED_CHECKS_KEY = "ayoqsh_printed_checks";
-
-function getPrintedChecks(): number[] {
-    try {
-        const stored = localStorage.getItem(PRINTED_CHECKS_KEY);
-        return stored ? JSON.parse(stored) : [];
-    } catch {
-        return [];
-    }
-}
-
-function markAsPrinted(checkId: number) {
-    const printed = getPrintedChecks();
-    if (!printed.includes(checkId)) {
-        printed.push(checkId);
-        localStorage.setItem(PRINTED_CHECKS_KEY, JSON.stringify(printed));
-    }
-}
-
-function removeFromPrinted(checkId: number) {
-    const printed = getPrintedChecks();
-    const updated = printed.filter((id) => id !== checkId);
-    localStorage.setItem(PRINTED_CHECKS_KEY, JSON.stringify(updated));
-}
 
 export default function PendingChecksPage() {
     const { user } = useAuth();
     const { toast } = useToast();
     const { data: checks, isLoading } = useChecks({ operatorId: user?.id || 0 });
+    const confirmCheck = useConfirmCheck();
     const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
     const [showQR, setShowQR] = useState(false);
-    const [printedIds, setPrintedIds] = useState<number[]>([]);
 
-    useEffect(() => {
-        setPrintedIds(getPrintedChecks());
-    }, []);
-
-    // Chop etilmagan cheklar (barcha statuslar, faqat printed bo'lmagan)
-    const unprintedChecks = checks?.filter(
-        (c) => !printedIds.includes(c.id)
-    ) || [];
+    // Faqat pending (chop etilmagan) cheklar
+    const unprintedChecks = checks?.filter((c) => c.status === "pending") || [];
 
     const handleCopyCode = (code: string) => {
         navigator.clipboard.writeText(code);
@@ -71,15 +40,13 @@ export default function PendingChecksPage() {
         w.document.write(html);
         w.document.close();
 
-        // Chop etilgan deb belgilash
-        markAsPrinted(check.id);
-        setPrintedIds([...printedIds, check.id]);
+        // Chop etilgan deb belgilash (backend'da)
+        confirmCheck.mutate(check.id);
         toast({ title: "Chop etildi", description: "Chek chop etilgan deb belgilandi" });
     };
 
     const handleMarkAsPrinted = (check: Check) => {
-        markAsPrinted(check.id);
-        setPrintedIds([...printedIds, check.id]);
+        confirmCheck.mutate(check.id);
         toast({ title: "Belgilandi", description: "Chek chop etilgan deb belgilandi" });
     };
 
@@ -153,15 +120,8 @@ export default function PendingChecksPage() {
                                         <TableCell className="text-muted-foreground">{check.customerPhone || "-"}</TableCell>
                                         <TableCell className="font-bold text-primary">{check.amountLiters} L</TableCell>
                                         <TableCell>
-                                            <span
-                                                className={`text-xs px-2 py-1 rounded-full ${check.status === "used"
-                                                        ? "bg-green-100 text-green-700"
-                                                        : check.status === "pending"
-                                                            ? "bg-yellow-100 text-yellow-700"
-                                                            : "bg-gray-100 text-gray-700"
-                                                    }`}
-                                            >
-                                                {check.status === "used" ? "Ishlatilgan" : check.status === "pending" ? "Kutilmoqda" : check.status}
+                                            <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                                                Kutilmoqda
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">

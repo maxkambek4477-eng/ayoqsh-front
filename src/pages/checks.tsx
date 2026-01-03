@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useChecks, useStations, useCreateCheck } from "@/hooks/use-data";
+import { useChecks, useStations, useReactivateCheck, useDeleteCheck } from "@/hooks/use-data";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Search, Receipt, Droplets, CheckCircle, RotateCcw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Loader2, Search, Receipt, Droplets, CheckCircle, RotateCcw, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Check } from "@/types";
@@ -16,7 +17,8 @@ import { Check } from "@/types";
 export default function ChecksPage() {
     const { user } = useAuth();
     const { toast } = useToast();
-    const createCheck = useCreateCheck();
+    const reactivateCheck = useReactivateCheck();
+    const deleteCheck = useDeleteCheck();
 
     const [stationFilter, setStationFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -24,18 +26,27 @@ export default function ChecksPage() {
 
     // Qayta qo'shish uchun state'lar
     const [showQuickAdd, setShowQuickAdd] = useState(false);
-    const [quickAddCustomer, setQuickAddCustomer] = useState<{ name: string; phone: string } | null>(null);
+    const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
     const [quickAddAmount, setQuickAddAmount] = useState("");
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastCheck, setLastCheck] = useState<Check | null>(null);
 
+    // O'chirish uchun state
+    const [checkToDelete, setCheckToDelete] = useState<Check | null>(null);
+
     const { data: stations } = useStations();
     const { data: checks, isLoading } = useChecks({
         stationId: stationFilter !== "all" ? parseInt(stationFilter) : undefined,
-        status: statusFilter !== "all" ? statusFilter : undefined,
     });
 
-    const filteredChecks = checks?.filter(check =>
+    // Status bo'yicha filtrlash (pending = pending + printed)
+    const statusFilteredChecks = checks?.filter(check => {
+        if (statusFilter === "all") return true;
+        if (statusFilter === "pending") return check.status === "pending" || check.status === "printed";
+        return check.status === statusFilter;
+    });
+
+    const filteredChecks = statusFilteredChecks?.filter(check =>
         check.code.toLowerCase().includes(search.toLowerCase()) ||
         check.customerName?.toLowerCase().includes(search.toLowerCase()) ||
         check.customerPhone?.includes(search) ||
@@ -47,6 +58,7 @@ export default function ChecksPage() {
             case 'used':
                 return <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Ishlatilgan</Badge>;
             case 'pending':
+            case 'printed':
                 return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200">Kutilmoqda</Badge>;
             case 'expired':
                 return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200">Muddati o'tgan</Badge>;
@@ -58,36 +70,29 @@ export default function ChecksPage() {
     };
 
     const openQuickAdd = (check: Check) => {
-        setQuickAddCustomer({
-            name: check.customerName || "",
-            phone: check.customerPhone || "",
-        });
-        setQuickAddAmount("");
+        setSelectedCheck(check);
+        setQuickAddAmount(check.amountLiters);
         setShowQuickAdd(true);
     };
 
     const handleQuickAdd = () => {
-        if (!user?.stationId || !quickAddCustomer) return;
+        if (!selectedCheck || !user) return;
         const amount = parseFloat(quickAddAmount);
         if (isNaN(amount) || amount <= 0) {
             toast({ title: "Xatolik", description: "Miqdorni to'g'ri kiriting", variant: "destructive" });
             return;
         }
-        createCheck.mutate({
+        reactivateCheck.mutate({
+            checkId: selectedCheck.id,
             amountLiters: amount,
             operatorId: user.id,
-            stationId: user.stationId,
-            customerName: quickAddCustomer.name,
-            customerPhone: quickAddCustomer.phone,
-            customerAddress: "",
-            autoUse: true,
         }, {
-            onSuccess: (data) => {
-                setLastCheck(data);
+            onSuccess: () => {
+                setLastCheck({ ...selectedCheck, amountLiters: String(amount) });
                 setShowQuickAdd(false);
                 setShowSuccess(true);
                 setQuickAddAmount("");
-                setQuickAddCustomer(null);
+                setSelectedCheck(null);
             },
         });
     };
@@ -128,8 +133,6 @@ export default function ChecksPage() {
                         <SelectItem value="all">Barchasi</SelectItem>
                         <SelectItem value="pending">Kutilmoqda</SelectItem>
                         <SelectItem value="used">Ishlatilgan</SelectItem>
-                        <SelectItem value="expired">Muddati o'tgan</SelectItem>
-                        <SelectItem value="cancelled">Bekor qilingan</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -153,13 +156,13 @@ export default function ChecksPage() {
                                 <TableHead>Holat</TableHead>
                                 <TableHead>Yaratilgan</TableHead>
                                 <TableHead>Ro'yxatdan o'tgan</TableHead>
-                                {user?.stationId && <TableHead className="text-right">Amal</TableHead>}
+                                <TableHead className="text-right">Amal</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={user?.stationId ? 9 : 8} className="h-24 text-center">
+                                    <TableCell colSpan={9} className="h-24 text-center">
                                         <div className="flex justify-center items-center gap-2">
                                             <Loader2 className="h-5 w-5 animate-spin text-primary" />
                                             Yuklanmoqda...
@@ -168,7 +171,7 @@ export default function ChecksPage() {
                                 </TableRow>
                             ) : filteredChecks?.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={user?.stationId ? 9 : 8} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                                         Cheklar topilmadi.
                                     </TableCell>
                                 </TableRow>
@@ -194,18 +197,29 @@ export default function ChecksPage() {
                                         <TableCell className="text-muted-foreground">
                                             {check.usedAt ? format(new Date(check.usedAt), 'dd.MM.yyyy HH:mm') : '-'}
                                         </TableCell>
-                                        {user?.stationId && (
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => openQuickAdd(check)}
-                                                >
-                                                    <RotateCcw className="h-4 w-4 mr-1" />
-                                                    Qayta
-                                                </Button>
-                                            </TableCell>
-                                        )}
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                {user?.stationId && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => openQuickAdd(check)}
+                                                    >
+                                                        <RotateCcw className="h-4 w-4 mr-1" />
+                                                        Qayta
+                                                    </Button>
+                                                )}
+                                                {user?.role === "moderator" && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => setCheckToDelete(check)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
@@ -219,12 +233,13 @@ export default function ChecksPage() {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Qayta litr qo'shish</DialogTitle>
-                        <DialogDescription>Mijozga yangi litr qo'shing</DialogDescription>
+                        <DialogDescription>Chekni ishlatilgan qilib, mijoz hisobiga litr qo'shing</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="bg-slate-50 p-4 rounded-lg">
-                            <p className="font-medium">{quickAddCustomer?.name}</p>
-                            <p className="text-sm text-muted-foreground">{quickAddCustomer?.phone}</p>
+                            <p className="font-medium">{selectedCheck?.customerName || selectedCheck?.customer?.fullName}</p>
+                            <p className="text-sm text-muted-foreground">{selectedCheck?.customerPhone || selectedCheck?.customer?.phone}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Chek: {selectedCheck?.code}</p>
                         </div>
                         <div>
                             <label className="text-sm font-medium">Litr miqdori</label>
@@ -246,8 +261,8 @@ export default function ChecksPage() {
                         <Button variant="outline" onClick={() => setShowQuickAdd(false)}>
                             Bekor qilish
                         </Button>
-                        <Button onClick={handleQuickAdd} disabled={createCheck.isPending}>
-                            {createCheck.isPending ? "Qo'shilmoqda..." : "Qo'shish"}
+                        <Button onClick={handleQuickAdd} disabled={reactivateCheck.isPending}>
+                            {reactivateCheck.isPending ? "Qo'shilmoqda..." : "Qo'shish"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -281,6 +296,38 @@ export default function ChecksPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* O'chirish tasdiqlash dialogi */}
+            <AlertDialog open={!!checkToDelete} onOpenChange={() => setCheckToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Chekni o'chirish</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            <strong>{checkToDelete?.code}</strong> kodli chekni o'chirmoqchimisiz?
+                            {checkToDelete?.status === "used" && (
+                                <span className="block mt-2 text-orange-600">
+                                    ⚠️ Bu chek ishlatilgan. O'chirilganda {checkToDelete?.amountLiters} litr mijoz balansidan ayiriladi.
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => {
+                                if (checkToDelete) {
+                                    deleteCheck.mutate(checkToDelete.id, {
+                                        onSuccess: () => setCheckToDelete(null),
+                                    });
+                                }
+                            }}
+                        >
+                            {deleteCheck.isPending ? "O'chirilmoqda..." : "O'chirish"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
