@@ -32,7 +32,6 @@ function ProtectedRoute({ component: Component, allowedRoles }: { component: any
   }
 
   if (!user) {
-    // Rolga qarab to'g'ri login sahifasiga yo'naltirish
     if (allowedRoles?.includes("operator") && !allowedRoles?.includes("moderator")) {
       setLocation("/operator");
     } else if (allowedRoles?.includes("moderator") && !allowedRoles?.includes("operator")) {
