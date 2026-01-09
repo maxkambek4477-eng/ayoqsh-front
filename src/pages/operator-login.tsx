@@ -30,7 +30,6 @@ export default function OperatorLoginPage() {
         if (user && !hasCheckedRole.current) {
             hasCheckedRole.current = true;
             if (user.role === "operator") {
-                // Muvaffaqiyatli login
                 if (!hasShownToast.current) {
                     hasShownToast.current = true;
                     toast({
@@ -40,7 +39,6 @@ export default function OperatorLoginPage() {
                 }
                 setLocation("/");
             } else {
-                // Noto'g'ri rol - sessiyani tozalash
                 tokenStorage.remove();
                 localStorage.removeItem("ayoqsh_user");
                 queryClient.setQueryData(["auth-user"], null);

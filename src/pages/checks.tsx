@@ -23,15 +23,11 @@ export default function ChecksPage() {
     const [stationFilter, setStationFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [search, setSearch] = useState("");
-
-    // Qayta qo'shish uchun state'lar
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
     const [quickAddAmount, setQuickAddAmount] = useState("");
     const [showSuccess, setShowSuccess] = useState(false);
     const [lastCheck, setLastCheck] = useState<Check | null>(null);
-
-    // O'chirish uchun state
     const [checkToDelete, setCheckToDelete] = useState<Check | null>(null);
 
     const { data: stations } = useStations();
@@ -39,7 +35,6 @@ export default function ChecksPage() {
         stationId: stationFilter !== "all" ? parseInt(stationFilter) : undefined,
     });
 
-    // Status bo'yicha filtrlash (pending = pending + printed)
     const statusFilteredChecks = checks?.filter(check => {
         if (statusFilter === "all") return true;
         if (statusFilter === "pending") return check.status === "pending" || check.status === "printed";
@@ -55,17 +50,12 @@ export default function ChecksPage() {
 
     const getStatusBadge = (status: string) => {
         switch (status) {
-            case 'used':
-                return <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Ishlatilgan</Badge>;
+            case 'used': return <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Ishlatilgan</Badge>;
             case 'pending':
-            case 'printed':
-                return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200">Kutilmoqda</Badge>;
-            case 'expired':
-                return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200">Muddati o'tgan</Badge>;
-            case 'cancelled':
-                return <Badge className="bg-red-100 text-red-700 hover:bg-red-200">Bekor qilingan</Badge>;
-            default:
-                return <Badge variant="outline">{status}</Badge>;
+            case 'printed': return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200">Kutilmoqda</Badge>;
+            case 'expired': return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200">Muddati o'tgan</Badge>;
+            case 'cancelled': return <Badge className="bg-red-100 text-red-700 hover:bg-red-200">Bekor qilingan</Badge>;
+            default: return <Badge variant="outline">{status}</Badge>;
         }
     };
 
@@ -82,11 +72,7 @@ export default function ChecksPage() {
             toast({ title: "Xatolik", description: "Miqdorni to'g'ri kiriting", variant: "destructive" });
             return;
         }
-        reactivateCheck.mutate({
-            checkId: selectedCheck.id,
-            amountLiters: amount,
-            operatorId: user.id,
-        }, {
+        reactivateCheck.mutate({ checkId: selectedCheck.id, amountLiters: amount, operatorId: user.id }, {
             onSuccess: () => {
                 setLastCheck({ ...selectedCheck, amountLiters: String(amount) });
                 setShowQuickAdd(false);
@@ -107,28 +93,17 @@ export default function ChecksPage() {
             <div className="flex flex-wrap gap-4">
                 <div className="relative w-64">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Kod, mijoz yoki operator..."
-                        className="pl-9"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                    <Input placeholder="Kod, mijoz yoki operator..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
                 <Select value={stationFilter} onValueChange={setStationFilter}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Shaxobcha" />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-48"><SelectValue placeholder="Shaxobcha" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Barcha shaxobchalar</SelectItem>
-                        {stations?.map((s) => (
-                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                        ))}
+                        {stations?.map((s) => (<SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>))}
                     </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Holat" />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-40"><SelectValue placeholder="Holat" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Barchasi</SelectItem>
                         <SelectItem value="pending">Kutilmoqda</SelectItem>
@@ -138,12 +113,7 @@ export default function ChecksPage() {
             </div>
 
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Receipt className="h-5 w-5" />
-                        Cheklar ro'yxati
-                    </CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" />Cheklar ro'yxati</CardTitle></CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
@@ -161,20 +131,9 @@ export default function ChecksPage() {
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="h-24 text-center">
-                                        <div className="flex justify-center items-center gap-2">
-                                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                                            Yuklanmoqda...
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
+                                <TableRow><TableCell colSpan={9} className="h-24 text-center"><div className="flex justify-center items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-primary" />Yuklanmoqda...</div></TableCell></TableRow>
                             ) : filteredChecks?.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                                        Cheklar topilmadi.
-                                    </TableCell>
-                                </TableRow>
+                                <TableRow><TableCell colSpan={9} className="h-24 text-center text-muted-foreground">Cheklar topilmadi.</TableCell></TableRow>
                             ) : (
                                 filteredChecks?.map((check) => (
                                     <TableRow key={check.id}>
@@ -185,39 +144,16 @@ export default function ChecksPage() {
                                         <TableCell>
                                             <div>
                                                 <p className="font-medium">{check.customer?.fullName || check.customerName || '-'}</p>
-                                                {(check.customer?.phone || check.customerPhone) && (
-                                                    <p className="text-xs text-muted-foreground">{check.customer?.phone || check.customerPhone}</p>
-                                                )}
+                                                {(check.customer?.phone || check.customerPhone) && (<p className="text-xs text-muted-foreground">{check.customer?.phone || check.customerPhone}</p>)}
                                             </div>
                                         </TableCell>
                                         <TableCell>{getStatusBadge(check.status)}</TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {format(new Date(check.createdAt), 'dd.MM.yyyy HH:mm')}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {check.usedAt ? format(new Date(check.usedAt), 'dd.MM.yyyy HH:mm') : '-'}
-                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">{format(new Date(check.createdAt), 'dd.MM.yyyy HH:mm')}</TableCell>
+                                        <TableCell className="text-muted-foreground">{check.usedAt ? format(new Date(check.usedAt), 'dd.MM.yyyy HH:mm') : '-'}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                {user?.stationId && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => openQuickAdd(check)}
-                                                    >
-                                                        <RotateCcw className="h-4 w-4 mr-1" />
-                                                        Qayta
-                                                    </Button>
-                                                )}
-                                                {user?.role === "moderator" && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="destructive"
-                                                        onClick={() => setCheckToDelete(check)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                )}
+                                                {user?.stationId && (<Button size="sm" variant="outline" onClick={() => openQuickAdd(check)}><RotateCcw className="h-4 w-4 mr-1" />Qayta</Button>)}
+                                                {user?.role === "moderator" && (<Button size="sm" variant="destructive" onClick={() => setCheckToDelete(check)}><Trash2 className="h-4 w-4" /></Button>)}
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -228,7 +164,6 @@ export default function ChecksPage() {
                 </CardContent>
             </Card>
 
-            {/* Qayta qo'shish dialogi */}
             <Dialog open={showQuickAdd} onOpenChange={setShowQuickAdd}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -245,40 +180,22 @@ export default function ChecksPage() {
                             <label className="text-sm font-medium">Litr miqdori</label>
                             <div className="relative mt-1">
                                 <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                                <Input
-                                    type="number"
-                                    placeholder="0.00"
-                                    min="0.1"
-                                    step="any"
-                                    className="pl-10 h-12 text-xl font-bold"
-                                    value={quickAddAmount}
-                                    onChange={(e) => setQuickAddAmount(e.target.value)}
-                                />
+                                <Input type="number" placeholder="0.00" min="0.1" step="any" className="pl-10 h-12 text-xl font-bold" value={quickAddAmount} onChange={(e) => setQuickAddAmount(e.target.value)} />
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowQuickAdd(false)}>
-                            Bekor qilish
-                        </Button>
-                        <Button onClick={handleQuickAdd} disabled={reactivateCheck.isPending}>
-                            {reactivateCheck.isPending ? "Qo'shilmoqda..." : "Qo'shish"}
-                        </Button>
+                        <Button variant="outline" onClick={() => setShowQuickAdd(false)}>Bekor qilish</Button>
+                        <Button onClick={handleQuickAdd} disabled={reactivateCheck.isPending}>{reactivateCheck.isPending ? "Qo'shilmoqda..." : "Qo'shish"}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Muvaffaqiyat dialogi */}
             <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-center flex items-center justify-center gap-2">
-                            <CheckCircle className="h-6 w-6 text-green-500" />
-                            Muvaffaqiyatli!
-                        </DialogTitle>
-                        <DialogDescription className="text-center">
-                            Litrlar mijoz hisobiga qo'shildi.
-                        </DialogDescription>
+                        <DialogTitle className="text-center flex items-center justify-center gap-2"><CheckCircle className="h-6 w-6 text-green-500" />Muvaffaqiyatli!</DialogTitle>
+                        <DialogDescription className="text-center">Litrlar mijoz hisobiga qo'shildi.</DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col items-center py-6">
                         <div className="text-center space-y-2">
@@ -289,40 +206,22 @@ export default function ChecksPage() {
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="sm:justify-center">
-                        <Button onClick={() => setShowSuccess(false)} className="w-full sm:w-auto">
-                            Tayyor
-                        </Button>
-                    </DialogFooter>
+                    <DialogFooter className="sm:justify-center"><Button onClick={() => setShowSuccess(false)} className="w-full sm:w-auto">Tayyor</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* O'chirish tasdiqlash dialogi */}
             <AlertDialog open={!!checkToDelete} onOpenChange={() => setCheckToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Chekni o'chirish</AlertDialogTitle>
                         <AlertDialogDescription>
                             <strong>{checkToDelete?.code}</strong> kodli chekni o'chirmoqchimisiz?
-                            {checkToDelete?.status === "used" && (
-                                <span className="block mt-2 text-orange-600">
-                                    ⚠️ Bu chek ishlatilgan. O'chirilganda {checkToDelete?.amountLiters} litr mijoz balansidan ayiriladi.
-                                </span>
-                            )}
+                            {checkToDelete?.status === "used" && (<span className="block mt-2 text-orange-600">⚠️ Bu chek ishlatilgan. O'chirilganda {checkToDelete?.amountLiters} litr mijoz balansidan ayiriladi.</span>)}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => {
-                                if (checkToDelete) {
-                                    deleteCheck.mutate(checkToDelete.id, {
-                                        onSuccess: () => setCheckToDelete(null),
-                                    });
-                                }
-                            }}
-                        >
+                        <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => { if (checkToDelete) { deleteCheck.mutate(checkToDelete.id, { onSuccess: () => setCheckToDelete(null) }); } }}>
                             {deleteCheck.isPending ? "O'chirilmoqda..." : "O'chirish"}
                         </AlertDialogAction>
                     </AlertDialogFooter>

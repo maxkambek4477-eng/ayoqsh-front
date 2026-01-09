@@ -43,7 +43,6 @@ function ProtectedRoute({ component: Component, allowedRoles }: { component: any
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Ruxsat yo'q - o'z paneliga yo'naltirish
     setLocation("/");
     return null;
   }

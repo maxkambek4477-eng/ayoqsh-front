@@ -56,7 +56,6 @@ function useLoginMutation() {
       tokenStorage.set(data.accessToken);
       setStoredUser(data.user);
       queryClient.setQueryData(["auth-user"], data.user);
-      // Toast login sahifalarida ko'rsatiladi (rol tekshirilgandan keyin)
     },
     onError: (error: any) => {
       toast({

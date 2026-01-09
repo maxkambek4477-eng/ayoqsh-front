@@ -127,7 +127,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const handleLogout = () => {
     const redirectUrl = isModerator ? "/moderator" : "/operator";
     setLogoutDialogOpen(false);
-    // Tokenni tozalash va darhol redirect qilish
     tokenStorage.remove();
     localStorage.removeItem("ayoqsh_user");
     window.location.href = redirectUrl;

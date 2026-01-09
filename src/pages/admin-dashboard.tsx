@@ -78,76 +78,22 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title="Jami mijozlar"
-          value={stats?.totalCustomers ?? 0}
-          icon={Users}
-          description="Ro'yxatdan o'tgan"
-          loading={statsLoading}
-        />
-        <StatsCard
-          title="Operatorlar"
-          value={stats?.totalOperators ?? 0}
-          icon={Users}
-          description="Faol xodimlar"
-          loading={statsLoading}
-        />
-        <StatsCard
-          title="Shaxobchalar"
-          value={stats?.totalStations ?? 0}
-          icon={Building2}
-          description="Faol filiallar"
-          loading={statsLoading}
-        />
-        <StatsCard
-          title="Jami litr"
-          value={`${formatLiters(stats?.totalLiters)} L`}
-          icon={Droplets}
-          description="Barcha cheklar"
-          loading={statsLoading}
-        />
+        <StatsCard title="Jami mijozlar" value={stats?.totalCustomers ?? 0} icon={Users} description="Ro'yxatdan o'tgan" loading={statsLoading} />
+        <StatsCard title="Operatorlar" value={stats?.totalOperators ?? 0} icon={Users} description="Faol xodimlar" loading={statsLoading} />
+        <StatsCard title="Shaxobchalar" value={stats?.totalStations ?? 0} icon={Building2} description="Faol filiallar" loading={statsLoading} />
+        <StatsCard title="Jami litr" value={`${formatLiters(stats?.totalLiters)} L`} icon={Droplets} description="Barcha cheklar" loading={statsLoading} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title="Tasdiqlangan"
-          value={`${formatLiters(stats?.usedLiters)} L`}
-          icon={CheckCircle}
-          description={`${stats?.usedChecks ?? 0} ta chek`}
-          loading={statsLoading}
-          variant="success"
-        />
-        <StatsCard
-          title="Kutilayotgan"
-          value={`${formatLiters(stats?.pendingLiters)} L`}
-          icon={Clock}
-          description={`${stats?.pendingChecks ?? 0} ta chek`}
-          loading={statsLoading}
-          variant="warning"
-        />
-        <StatsCard
-          title="Jami cheklar"
-          value={stats?.totalChecks ?? 0}
-          icon={Receipt}
-          description="Yaratilgan"
-          loading={statsLoading}
-        />
-        <StatsCard
-          title="O'rtacha"
-          value={stats?.usedChecks && stats?.usedLiters ? `${(stats.usedLiters / stats.usedChecks).toFixed(1)} L` : "0 L"}
-          icon={TrendingUp}
-          description="Har bir chekda"
-          loading={statsLoading}
-        />
+        <StatsCard title="Tasdiqlangan" value={`${formatLiters(stats?.usedLiters)} L`} icon={CheckCircle} description={`${stats?.usedChecks ?? 0} ta chek`} loading={statsLoading} variant="success" />
+        <StatsCard title="Kutilayotgan" value={`${formatLiters(stats?.pendingLiters)} L`} icon={Clock} description={`${stats?.pendingChecks ?? 0} ta chek`} loading={statsLoading} variant="warning" />
+        <StatsCard title="Jami cheklar" value={stats?.totalChecks ?? 0} icon={Receipt} description="Yaratilgan" loading={statsLoading} />
+        <StatsCard title="O'rtacha" value={stats?.usedChecks && stats?.usedLiters ? `${(stats.usedLiters / stats.usedChecks).toFixed(1)} L` : "0 L"} icon={TrendingUp} description="Har bir chekda" loading={statsLoading} />
       </div>
 
-      {/* Excel Export */}
       <Card className="shadow-sm border-border/50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Excel eksport
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5" />Excel eksport</CardTitle>
           <CardDescription>Cheklar ma'lumotlarini Excel formatida yuklab olish</CardDescription>
         </CardHeader>
         <CardContent>
@@ -156,24 +102,14 @@ export default function AdminDashboard() {
               <label className="text-sm font-medium">Boshlanish sanasi</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="pl-10 w-44"
-                />
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="pl-10 w-44" />
               </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Tugash sanasi</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="pl-10 w-44"
-                />
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="pl-10 w-44" />
               </div>
             </div>
             <Button onClick={handleExport} disabled={exporting}>
@@ -197,10 +133,7 @@ export default function AdminDashboard() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span>Tasdiqlangan</span>
-                </div>
+                <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /><span>Tasdiqlangan</span></div>
                 <span className="font-medium">{usedPercent}%</span>
               </div>
               <Progress value={usedPercent} className="h-2 bg-green-100" />
@@ -208,10 +141,7 @@ export default function AdminDashboard() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-600" />
-                  <span>Kutilayotgan</span>
-                </div>
+                <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-yellow-600" /><span>Kutilayotgan</span></div>
                 <span className="font-medium">{pendingPercent}%</span>
               </div>
               <Progress value={pendingPercent} className="h-2 bg-yellow-100" />
