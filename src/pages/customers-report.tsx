@@ -1,14 +1,23 @@
 import { useState } from "react";
-import { useCustomersReport, useTopCustomers, exportCustomersToExcel } from "@/hooks/use-data";
+import { useCustomersReport, useTopCustomers, useUpdateUser, exportCustomersToExcel } from "@/hooks/use-data";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Download, TrendingUp, TrendingDown, Trophy, Users, Medal, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Trophy, Users, Medal, ChevronLeft, ChevronRight, Pencil, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatLiters } from "@/lib/format";
+
+interface CustomerToEdit {
+    id: number;
+    fullName: string | null;
+    phone: string | null;
+    balanceLiters: string;
+}
 
 export default function CustomersReportPage() {
     const [order, setOrder] = useState<"desc" | "asc">("desc");
@@ -19,6 +28,11 @@ export default function CustomersReportPage() {
     const { data: bottom10 } = useTopCustomers("asc", 10);
     const { toast } = useToast();
     const [exporting, setExporting] = useState(false);
+
+    // Tahrirlash uchun
+    const [editCustomer, setEditCustomer] = useState<CustomerToEdit | null>(null);
+    const [editForm, setEditForm] = useState({ fullName: "", phone: "", balanceLiters: "" });
+    const updateUser = useUpdateUser();
 
     const customers = customersData?.data || [];
     const pagination = customersData?.pagination;
@@ -33,6 +47,36 @@ export default function CustomersReportPage() {
         } finally {
             setExporting(false);
         }
+    };
+
+    const openEditDialog = (customer: CustomerToEdit) => {
+        setEditCustomer(customer);
+        setEditForm({
+            fullName: customer.fullName || "",
+            phone: customer.phone || "",
+            balanceLiters: customer.balanceLiters || "0",
+        });
+    };
+
+    const handleSaveCustomer = () => {
+        if (!editCustomer) return;
+
+        updateUser.mutate(
+            {
+                id: editCustomer.id,
+                data: {
+                    fullName: editForm.fullName || undefined,
+                    phone: editForm.phone || undefined,
+                    balanceLiters: parseFloat(editForm.balanceLiters) || 0,
+                },
+            },
+            {
+                onSuccess: () => {
+                    setEditCustomer(null);
+                    toast({ title: "Muvaffaqiyat", description: "Mijoz ma'lumotlari yangilandi" });
+                },
+            }
+        );
     };
 
     const getMedalColor = (index: number) => {
@@ -149,13 +193,14 @@ export default function CustomersReportPage() {
                                         <TableHead>Telefon</TableHead>
                                         <TableHead className="text-right">Balans (L)</TableHead>
                                         <TableHead className="text-right">Cheklar</TableHead>
+                                        <TableHead className="w-16">Amal</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow><TableCell colSpan={5} className="text-center py-8">Yuklanmoqda...</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="text-center py-8">Yuklanmoqda...</TableCell></TableRow>
                                     ) : customers?.length === 0 ? (
-                                        <TableRow><TableCell colSpan={5} className="text-center py-8">Mijozlar yo'q</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="text-center py-8">Mijozlar yo'q</TableCell></TableRow>
                                     ) : (
                                         customers?.map((customer, index) => {
                                             const globalIndex = (page - 1) * limit + index;
@@ -166,6 +211,16 @@ export default function CustomersReportPage() {
                                                     <TableCell>{customer.phone || "-"}</TableCell>
                                                     <TableCell className="text-right font-semibold">{formatLiters(customer.balanceLiters)}</TableCell>
                                                     <TableCell className="text-right">{customer._count?.usedChecks || 0}</TableCell>
+                                                    <TableCell>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={() => openEditDialog(customer)}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
                                             );
                                         })
@@ -204,6 +259,53 @@ export default function CustomersReportPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Mijozni tahrirlash dialogi */}
+            <Dialog open={!!editCustomer} onOpenChange={(open) => !open && setEditCustomer(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Mijozni tahrirlash</DialogTitle>
+                        <DialogDescription>Mijoz ma'lumotlarini o'zgartiring</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <label className="text-sm font-medium">F.I.O</label>
+                            <Input
+                                value={editForm.fullName}
+                                onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                                placeholder="Ism Familiya"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium">Telefon</label>
+                            <Input
+                                value={editForm.phone}
+                                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                placeholder="+998901234567"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium">Balans (Litr)</label>
+                            <Input
+                                type="number"
+                                step="0.01"
+                                value={editForm.balanceLiters}
+                                onChange={(e) => setEditForm({ ...editForm, balanceLiters: e.target.value })}
+                                placeholder="0.00"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditCustomer(null)}>
+                            Bekor qilish
+                        </Button>
+                        <Button onClick={handleSaveCustomer} disabled={updateUser.isPending}>
+                            {updateUser.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Saqlash
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

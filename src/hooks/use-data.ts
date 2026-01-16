@@ -70,6 +70,8 @@ export function useUpdateUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/report"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/top"] });
       toast({ title: "Muvaffaqiyat", description: "Foydalanuvchi yangilandi" });
     },
     onError: (error: any) => {
