@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Loader2, Search, Receipt, Droplets, CheckCircle, RotateCcw, Trash2 } from "lucide-react";
+import { Loader2, Search, Receipt, Droplets, CheckCircle, RotateCcw, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Check } from "@/types";
@@ -23,6 +23,8 @@ export default function ChecksPage() {
     const [stationFilter, setStationFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const limit = 50;
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
     const [quickAddAmount, setQuickAddAmount] = useState("");
@@ -33,9 +35,13 @@ export default function ChecksPage() {
     const { data: stations } = useStations();
     const { data: checks, isLoading } = useChecks({
         stationId: stationFilter !== "all" ? parseInt(stationFilter) : undefined,
+        page,
+        limit,
     });
 
-    const statusFilteredChecks = checks?.filter(check => {
+    const pagination = checks?.pagination;
+
+    const statusFilteredChecks = checks?.data?.filter(check => {
         if (statusFilter === "all") return true;
         if (statusFilter === "pending") return check.status === "pending" || check.status === "printed";
         return check.status === statusFilter;
@@ -95,14 +101,14 @@ export default function ChecksPage() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Kod, mijoz yoki operator..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
-                <Select value={stationFilter} onValueChange={setStationFilter}>
+                <Select value={stationFilter} onValueChange={(v) => { setStationFilter(v); setPage(1); }}>
                     <SelectTrigger className="w-48"><SelectValue placeholder="Shaxobcha" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Barcha shaxobchalar</SelectItem>
                         {stations?.map((s) => (<SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>))}
                     </SelectContent>
                 </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
                     <SelectTrigger className="w-40"><SelectValue placeholder="Holat" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Barchasi</SelectItem>
@@ -113,7 +119,12 @@ export default function ChecksPage() {
             </div>
 
             <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" />Cheklar ro'yxati</CardTitle></CardHeader>
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                        <span className="flex items-center gap-2"><Receipt className="h-5 w-5" />Cheklar ro'yxati</span>
+                        {pagination && <span className="text-sm font-normal text-muted-foreground">Jami: {pagination.total}</span>}
+                    </CardTitle>
+                </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
@@ -161,6 +172,34 @@ export default function ChecksPage() {
                             )}
                         </TableBody>
                     </Table>
+
+                    {pagination && pagination.totalPages > 1 && (
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                            <p className="text-sm text-muted-foreground">
+                                Sahifa {pagination.page} / {pagination.totalPages}
+                            </p>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Oldingi
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                    disabled={page >= pagination.totalPages}
+                                >
+                                    Keyingi
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

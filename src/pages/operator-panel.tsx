@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { History, Users, Droplets, Search, Loader2, Printer, QrCode, Plus, X } from "lucide-react";
+import { History, Users, Droplets, Search, Loader2, Printer, QrCode, Plus, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { formatLiters } from "@/lib/format";
 import type { Check } from "@/types";
@@ -20,9 +20,10 @@ export default function OperatorPanel() {
   const createCheck = useCreateCheck();
   const cancelCheck = useCancelCheck();
   const confirmCheck = useConfirmCheck();
-  const { data: checks } = useChecks({ operatorId: user?.id || 0 });
+  const { data: checks } = useChecks({ operatorId: user?.id || 0, isPrinted: false, limit: 50 });
   const { data: stats, isLoading: statsLoading } = useOperatorStats(user?.id || 0);
-  const { data: customers, isLoading: customersLoading } = useStationCustomers(user?.stationId || 0);
+  const [customerPage, setCustomerPage] = useState(1);
+  const { data: customersData, isLoading: customersLoading } = useStationCustomers(user?.stationId || 0, customerPage, 50);
 
   const [lastCheck, setLastCheck] = useState<Check | null>(null);
   const [showQR, setShowQR] = useState(false);
@@ -31,9 +32,9 @@ export default function OperatorPanel() {
   const inputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const myChecks = checks?.filter((c) => c.operatorId === user?.id) || [];
-  // Chop etilmagan cheklar - isPrinted: false
-  const unprintedChecks = myChecks.filter((c) => !c.isPrinted);
+  const unprintedChecks = checks?.data || [];
+  const customers = customersData?.data || [];
+  const customerPagination = customersData?.pagination;
 
   const filteredCustomers = customers?.filter(
     (c) =>
@@ -396,26 +397,56 @@ export default function OperatorPanel() {
                   {customerSearch ? "Mijoz topilmadi" : "Hali mijoz yo'q."}
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Mijoz</TableHead>
-                      <TableHead>Telefon</TableHead>
-                      <TableHead className="text-right">Balans</TableHead>
-                      <TableHead className="text-right">Cheklar</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCustomers?.map((customer) => (
-                      <TableRow key={customer.id}>
-                        <TableCell className="font-medium">{customer.fullName || "Noma'lum"}</TableCell>
-                        <TableCell className="text-muted-foreground">{customer.phone || "-"}</TableCell>
-                        <TableCell className="text-right font-bold text-primary">{formatLiters(customer.balanceLiters)}</TableCell>
-                        <TableCell className="text-right">{(customer as any)._count?.usedChecks || 0}</TableCell>
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mijoz</TableHead>
+                        <TableHead>Telefon</TableHead>
+                        <TableHead className="text-right">Balans</TableHead>
+                        <TableHead className="text-right">Cheklar</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCustomers?.map((customer) => (
+                        <TableRow key={customer.id}>
+                          <TableCell className="font-medium">{customer.fullName || "Noma'lum"}</TableCell>
+                          <TableCell className="text-muted-foreground">{customer.phone || "-"}</TableCell>
+                          <TableCell className="text-right font-bold text-primary">{formatLiters(customer.balanceLiters)}</TableCell>
+                          <TableCell className="text-right">{(customer as any)._count?.usedChecks || 0}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {customerPagination && customerPagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Sahifa {customerPagination.page} / {customerPagination.totalPages} (Jami: {customerPagination.total})
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCustomerPage((p) => Math.max(1, p - 1))}
+                          disabled={customerPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Oldingi
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCustomerPage((p) => Math.min(customerPagination.totalPages, p + 1))}
+                          disabled={customerPage >= customerPagination.totalPages}
+                        >
+                          Keyingi
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

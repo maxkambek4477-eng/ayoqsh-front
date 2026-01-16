@@ -44,7 +44,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Loader2, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { Search, UserPlus, Loader2, AlertCircle, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -62,21 +62,28 @@ const userFormSchema = z.object({
 });
 
 export default function UsersPage() {
-  const { data: users, isLoading } = useUsers();
+  const [page, setPage] = useState(1);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const limit = 50;
+  const { data: users, isLoading } = useUsers(
+    roleFilter !== "all" ? (roleFilter as "moderator" | "operator" | "customer") : undefined,
+    page,
+    limit
+  );
   const { data: stations } = useStations();
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
 
-  const filteredUsers = users?.filter((u) => {
+  const pagination = users?.pagination;
+
+  const filteredUsers = users?.data?.filter((u) => {
     const matchesSearch =
       u.fullName?.toLowerCase().includes(search.toLowerCase()) ||
       u.username?.toLowerCase().includes(search.toLowerCase()) ||
       u.phone?.includes(search);
-    const matchesRole = roleFilter === "all" || u.role === roleFilter;
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
   const getRoleName = (role: string) => {
@@ -117,7 +124,7 @@ export default function UsersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
+        <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Rol" />
           </SelectTrigger>
@@ -239,6 +246,34 @@ export default function UsersPage() {
               </TableBody>
             </Table>
           </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                Sahifa {pagination.page} / {pagination.totalPages} (Jami: {pagination.total})
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Oldingi
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                  disabled={page >= pagination.totalPages}
+                >
+                  Keyingi
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

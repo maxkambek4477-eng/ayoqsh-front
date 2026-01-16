@@ -6,17 +6,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Download, TrendingUp, TrendingDown, Trophy, Users, Medal } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Trophy, Users, Medal, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatLiters } from "@/lib/format";
 
 export default function CustomersReportPage() {
     const [order, setOrder] = useState<"desc" | "asc">("desc");
-    const { data: customers, isLoading } = useCustomersReport(order);
+    const [page, setPage] = useState(1);
+    const limit = 50;
+    const { data: customersData, isLoading } = useCustomersReport(order, page, limit);
     const { data: top10 } = useTopCustomers("desc", 10);
     const { data: bottom10 } = useTopCustomers("asc", 10);
     const { toast } = useToast();
     const [exporting, setExporting] = useState(false);
+
+    const customers = customersData?.data || [];
+    const pagination = customersData?.pagination;
 
     const handleExport = async () => {
         setExporting(true);
@@ -124,9 +129,9 @@ export default function CustomersReportPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle>Barcha mijozlar</CardTitle>
-                                    <CardDescription>Jami: {customers?.length || 0} ta mijoz</CardDescription>
+                                    <CardDescription>Jami: {pagination?.total || 0} ta mijoz</CardDescription>
                                 </div>
-                                <Select value={order} onValueChange={(v) => setOrder(v as "desc" | "asc")}>
+                                <Select value={order} onValueChange={(v) => { setOrder(v as "desc" | "asc"); setPage(1); }}>
                                     <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="desc"><div className="flex items-center gap-2"><TrendingDown className="h-4 w-4" />Eng ko'p → Eng kam</div></SelectItem>
@@ -152,18 +157,49 @@ export default function CustomersReportPage() {
                                     ) : customers?.length === 0 ? (
                                         <TableRow><TableCell colSpan={5} className="text-center py-8">Mijozlar yo'q</TableCell></TableRow>
                                     ) : (
-                                        customers?.map((customer, index) => (
-                                            <TableRow key={customer.id}>
-                                                <TableCell>{index < 3 ? (<Badge variant={index === 0 ? "default" : "secondary"} className="w-8 justify-center">{index + 1}</Badge>) : (index + 1)}</TableCell>
-                                                <TableCell className="font-medium">{customer.fullName || "-"}</TableCell>
-                                                <TableCell>{customer.phone || "-"}</TableCell>
-                                                <TableCell className="text-right font-semibold">{formatLiters(customer.balanceLiters)}</TableCell>
-                                                <TableCell className="text-right">{customer._count?.usedChecks || 0}</TableCell>
-                                            </TableRow>
-                                        ))
+                                        customers?.map((customer, index) => {
+                                            const globalIndex = (page - 1) * limit + index;
+                                            return (
+                                                <TableRow key={customer.id}>
+                                                    <TableCell>{globalIndex < 3 ? (<Badge variant={globalIndex === 0 ? "default" : "secondary"} className="w-8 justify-center">{globalIndex + 1}</Badge>) : (globalIndex + 1)}</TableCell>
+                                                    <TableCell className="font-medium">{customer.fullName || "-"}</TableCell>
+                                                    <TableCell>{customer.phone || "-"}</TableCell>
+                                                    <TableCell className="text-right font-semibold">{formatLiters(customer.balanceLiters)}</TableCell>
+                                                    <TableCell className="text-right">{customer._count?.usedChecks || 0}</TableCell>
+                                                </TableRow>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
+
+                            {pagination && pagination.totalPages > 1 && (
+                                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                                    <p className="text-sm text-muted-foreground">
+                                        Sahifa {pagination.page} / {pagination.totalPages}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-1" />
+                                            Oldingi
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                                            disabled={page >= pagination.totalPages}
+                                        >
+                                            Keyingi
+                                            <ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -14,11 +14,27 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/axios";
 
-export function useUsers(role?: "moderator" | "operator" | "customer") {
-  return useQuery<User[]>({
-    queryKey: ["/api/users", role],
+interface UsersResponse {
+  data: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function useUsers(
+  role?: "moderator" | "operator" | "customer",
+  page: number = 1,
+  limit: number = 100
+) {
+  return useQuery<UsersResponse>({
+    queryKey: ["/api/users", role, page, limit],
     queryFn: async () => {
-      const { data } = await api.get("/api/users", { params: role ? { role } : {} });
+      const { data } = await api.get("/api/users", {
+        params: { role, page, limit },
+      });
       return data;
     },
   });
@@ -81,11 +97,23 @@ export function useDeleteUser() {
   });
 }
 
-export function useStationCustomers(stationId: number) {
-  return useQuery<User[]>({
-    queryKey: ["/api/users/station", stationId, "customers"],
+interface StationCustomersResponse {
+  data: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function useStationCustomers(stationId: number, page: number = 1, limit: number = 50) {
+  return useQuery<StationCustomersResponse>({
+    queryKey: ["/api/users/station", stationId, "customers", page, limit],
     queryFn: async () => {
-      const { data } = await api.get(`/api/users/station/${stationId}/customers`);
+      const { data } = await api.get(`/api/users/station/${stationId}/customers`, {
+        params: { page, limit },
+      });
       return data;
     },
     enabled: !!stationId,
@@ -159,11 +187,28 @@ export function useDeleteStation() {
   });
 }
 
-export function useChecks(filters?: { stationId?: number; status?: string; operatorId?: number }) {
-  return useQuery<Check[]>({
+interface ChecksResponse {
+  data: Check[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function useChecks(filters?: {
+  stationId?: number;
+  status?: string;
+  operatorId?: number;
+  isPrinted?: boolean;
+  page?: number;
+  limit?: number;
+}) {
+  return useQuery<ChecksResponse>({
     queryKey: ["/api/checks", filters],
     queryFn: async () => {
-      const { data } = await api.get("/api/checks", { params: filters });
+      const { data } = await api.get("/api/checks", { params: { ...filters, limit: filters?.limit || 100 } });
       return data;
     },
   });
@@ -338,11 +383,21 @@ export function useTopCustomers(order: "asc" | "desc" = "desc", limit: number = 
   });
 }
 
-export function useCustomersReport(order: "asc" | "desc" = "desc") {
-  return useQuery<TopCustomer[]>({
-    queryKey: ["/api/users/report", order],
+interface CustomersReportResponse {
+  data: TopCustomer[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function useCustomersReport(order: "asc" | "desc" = "desc", page: number = 1, limit: number = 50) {
+  return useQuery<CustomersReportResponse>({
+    queryKey: ["/api/users/report", order, page, limit],
     queryFn: async () => {
-      const { data } = await api.get("/api/users/report", { params: { order } });
+      const { data } = await api.get("/api/users/report", { params: { order, page, limit } });
       return data;
     },
   });

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Printer, Copy, QrCode, Loader2, CheckCircle } from "lucide-react";
+import { Printer, Copy, QrCode, Loader2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import type { Check } from "@/types";
@@ -13,12 +13,15 @@ import type { Check } from "@/types";
 export default function PendingChecksPage() {
     const { user } = useAuth();
     const { toast } = useToast();
-    const { data: checks, isLoading } = useChecks({ operatorId: user?.id || 0 });
+    const [page, setPage] = useState(1);
+    const limit = 50;
+    const { data: checks, isLoading } = useChecks({ operatorId: user?.id || 0, isPrinted: false, page, limit });
     const confirmCheck = useConfirmCheck();
     const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
     const [showQR, setShowQR] = useState(false);
 
-    const unprintedChecks = checks?.filter((c) => !c.isPrinted) || [];
+    const unprintedChecks = checks?.data || [];
+    const pagination = checks?.pagination;
 
     const handleCopyCode = (code: string) => {
         navigator.clipboard.writeText(code);
@@ -64,7 +67,7 @@ export default function PendingChecksPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Chop etilmagan cheklar</CardTitle>
-                    <CardDescription>{unprintedChecks.length} ta chek chop etilmagan</CardDescription>
+                    <CardDescription>{unprintedChecks.length} ta chek chop etilmagan {pagination && `(Jami: ${pagination.total})`}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -122,6 +125,34 @@ export default function PendingChecksPage() {
                                 ))}
                             </TableBody>
                         </Table>
+                    )}
+
+                    {pagination && pagination.totalPages > 1 && (
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                            <p className="text-sm text-muted-foreground">
+                                Sahifa {pagination.page} / {pagination.totalPages} (Jami: {pagination.total})
+                            </p>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Oldingi
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                    disabled={page >= pagination.totalPages}
+                                >
+                                    Keyingi
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
+                        </div>
                     )}
                 </CardContent>
             </Card>
