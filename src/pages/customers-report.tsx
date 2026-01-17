@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCustomersReport, useTopCustomers, useUpdateUser, exportCustomersToExcel } from "@/hooks/use-data";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ export default function CustomersReportPage() {
     const { data: top10 } = useTopCustomers("desc", 10);
     const { data: bottom10 } = useTopCustomers("asc", 10);
     const { toast } = useToast();
+    const { user: currentUser } = useAuth();
     const [exporting, setExporting] = useState(false);
 
     // Tahrirlash uchun
@@ -36,6 +38,7 @@ export default function CustomersReportPage() {
 
     const customers = customersData?.data || [];
     const pagination = customersData?.pagination;
+    const isModerator = currentUser?.role === "moderator";
 
     const handleExport = async () => {
         setExporting(true);
@@ -61,14 +64,20 @@ export default function CustomersReportPage() {
     const handleSaveCustomer = () => {
         if (!editCustomer) return;
 
+        const updateData: any = {
+            fullName: editForm.fullName || undefined,
+            phone: editForm.phone || undefined,
+        };
+
+        // Moderator balanceLiters ni tahrirlay olmaydi
+        if (!isModerator) {
+            updateData.balanceLiters = parseFloat(editForm.balanceLiters) || 0;
+        }
+
         updateUser.mutate(
             {
                 id: editCustomer.id,
-                data: {
-                    fullName: editForm.fullName || undefined,
-                    phone: editForm.phone || undefined,
-                    balanceLiters: parseFloat(editForm.balanceLiters) || 0,
-                },
+                data: updateData,
             },
             {
                 onSuccess: () => {
@@ -284,16 +293,18 @@ export default function CustomersReportPage() {
                                 placeholder="+998901234567"
                             />
                         </div>
-                        <div>
-                            <label className="text-sm font-medium">Balans (Litr)</label>
-                            <Input
-                                type="number"
-                                step="0.01"
-                                value={editForm.balanceLiters}
-                                onChange={(e) => setEditForm({ ...editForm, balanceLiters: e.target.value })}
-                                placeholder="0.00"
-                            />
-                        </div>
+                        {!isModerator && (
+                            <div>
+                                <label className="text-sm font-medium">Balans (Litr)</label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={editForm.balanceLiters}
+                                    onChange={(e) => setEditForm({ ...editForm, balanceLiters: e.target.value })}
+                                    placeholder="0.00"
+                                />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditCustomer(null)}>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useStations } from "@/hooks/use-data";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,7 @@ const userFormSchema = z.object({
   role: z.enum(["moderator", "operator"]),
   stationId: z.number().optional().nullable(),
   isActive: z.boolean().optional(),
+  balanceLiters: z.number().optional(),
 });
 
 export default function UsersPage() {
@@ -71,12 +73,14 @@ export default function UsersPage() {
     limit
   );
   const { data: stations } = useStations();
+  const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
 
   const pagination = users?.pagination;
+  const isModerator = currentUser?.role === "moderator";
 
   const filteredUsers = users?.data?.filter((u) => {
     const matchesSearch =
@@ -308,7 +312,9 @@ function UserDialog({
 }) {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
+  const { user: currentUser } = useAuth();
   const isEdit = !!user;
+  const isModerator = currentUser?.role === "moderator";
 
   const form = useForm<z.infer<typeof userFormSchema>>({
     resolver: zodResolver(userFormSchema),
@@ -359,6 +365,10 @@ function UserDialog({
     // Convert null to undefined for stationId
     if (data.stationId === null) {
       delete data.stationId;
+    }
+    // Moderator balanceLiters ni tahrirlay olmaydi
+    if (isModerator) {
+      delete data.balanceLiters;
     }
 
     if (isEdit && user) {
